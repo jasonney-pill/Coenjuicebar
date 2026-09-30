@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CO.ÉN POS & Accounting v1.7 MODERN</title>
+<title>CO.ÉN POS v2.0 Cloud</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
 <style>
 :root{
   --bg:#f5f7fb;--panel:rgba(255,255,255,.86);--line:#e6eaf2;--text:#0f1728;--muted:#667085;
@@ -36,7 +38,7 @@ input,select{border:1px solid #dde3ee;background:rgba(255,255,255,.96);border-ra
 .pill{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:800}.p-green{background:var(--mint);color:var(--green2)}.p-red{background:var(--redBg);color:var(--red)}.p-blue{background:var(--blueBg);color:var(--blue)}.p-orange{background:var(--orangeBg);color:#ad641f}
 .actions{display:flex;gap:8px;flex-wrap:wrap}.mutedbox{background:linear-gradient(180deg,#f8fbff,#f4f8fc);border:1px solid var(--line);border-radius:16px;padding:14px}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{border:1px solid var(--line);background:#fff;color:#64748b;border-radius:10px;padding:8px 11px;font-size:11px;font-weight:800;cursor:pointer}.tabs button.on{background:#0d4f4c;color:#fff;border-color:#0d4f4c}
 .payback{background:linear-gradient(135deg,#302667,#6658ca);color:#fff;border:none}.payback .k,.payback .s{color:#e8e3ff}.payback .progress{background:rgba(255,255,255,.18)}.payback .progress i{background:#fff}
-.right{float:right}.nowrap{white-space:nowrap}.note{display:none}
+.right{float:right}.nowrap{white-space:nowrap}.note{font-size:11px;color:var(--muted);background:#f7fafc;border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px}
 
 .role-login{position:fixed;inset:0;z-index:9999;background:radial-gradient(circle at top left, rgba(79,107,255,.25), transparent 25%),radial-gradient(circle at top right, rgba(22,160,133,.20), transparent 25%),linear-gradient(135deg,#081f2a 0%,#0d4f4c 50%,#0f7d67 100%);display:flex;align-items:center;justify-content:center;padding:20px}
 .role-login.hidden{display:none}.login-card{width:min(520px,100%);background:rgba(255,255,255,.90);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.65);border-radius:28px;padding:28px;box-shadow:0 28px 80px rgba(0,0,0,.28)}
@@ -54,13 +56,10 @@ input,select{border:1px solid #dde3ee;background:rgba(255,255,255,.96);border-ra
 <body>
 <div class="role-login" id="roleLogin">
   <div class="login-card">
-    <div class="login-brand"><div class="logo">CÉ</div><div><h2>CO.ÉN POS</h2><div class="sub">Chọn quyền sử dụng</div></div></div>
-    <div class="role-grid">
-      <button class="role-choice active" id="roleEmployeeBtn" onclick="chooseRole('employee')"><b>👤 Nhân viên</b><span>Bán hàng · Thu/Chi · Kho</span></button>
-      <button class="role-choice" id="roleManagerBtn" onclick="chooseRole('manager')"><b>🛡️ Quản lý</b><span>Toàn bộ hệ thống & báo cáo</span></button>
-    </div>
-    <div class="field"><label>Mã PIN</label><input id="loginPin" type="password" inputmode="numeric" placeholder="Nhập PIN"></div>
-    <button class="btn" style="width:100%;margin-top:12px" onclick="loginRole()">Đăng nhập</button>
+    <div class="login-brand"><div class="logo">CÉ</div><div><h2>CO.ÉN POS</h2><div class="sub">Đăng nhập hệ thống Cloud</div></div></div>
+    <div class="field"><label>Email / tài khoản</label><input id="loginEmail" type="email" autocomplete="username" placeholder="staff@coen.vn"></div>
+    <div class="field" style="margin-top:10px"><label>Mật khẩu</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')loginCloud()"></div>
+    <button class="btn" id="loginButton" style="width:100%;margin-top:14px" onclick="loginCloud()">Đăng nhập</button>
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
@@ -350,12 +349,8 @@ input,select{border:1px solid #dde3ee;background:rgba(255,255,255,.96);border-ra
   <section class="page" id="settings">
     <div class="grid g2">
       <div class="card">
-        <h3>Phân quyền đăng nhập</h3>
-        <div class="form" style="grid-template-columns:1fr 1fr">
-          <div class="field"><label>PIN Nhân viên</label><input id="employeePin" type="password" class="yellow" value="0000" oninput="saveSettings()"></div>
-          <div class="field"><label>PIN Quản lý</label><input id="managerPin" type="password" class="yellow" value="1234" oninput="saveSettings()"></div>
-        </div>
-        <div class="note">Nhân viên chỉ thấy Bán hàng, Thu/Chi và Kho. Quản lý giữ nguyên toàn bộ chức năng.</div>
+        <h3>Tài khoản Cloud</h3>
+        <div class="mutedbox"><div class="k">Đang đăng nhập</div><div class="v" style="font-size:18px" id="cloudUser">—</div><div class="s" id="cloudRole">—</div></div>
       </div>
       <div class="card"><h3>Thuế</h3><div class="form" style="grid-template-columns:1fr 1fr">
         <div class="field"><label>Thuế doanh thu / VAT (%)</label><input id="taxRevenue" type="number" step="0.1" value="0" class="yellow" oninput="saveSettings()"></div>
@@ -387,7 +382,7 @@ const today=()=>new Date().toLocaleDateString("en-CA");
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const defaultData={
- settings:{taxRevenue:0,taxIncome:0,openDays:0,paybackMonths:0,fundOpen:0,fundActual:0,plannedCups:0,employeePin:"0000",managerPin:"1234"},
+ settings:{taxRevenue:0,taxIncome:0,openDays:0,paybackMonths:0,fundOpen:0,fundActual:0,plannedCups:0},
  fixed:[
   {id:uid(),name:"Tiền thuê mặt bằng",amount:0},{id:uid(),name:"Điện",amount:0},{id:uid(),name:"Nước",amount:0},
   {id:uid(),name:"Internet / phần mềm / POS",amount:0},{id:uid(),name:"Marketing cố định",amount:0},{id:uid(),name:"Bảo trì / sửa chữa",amount:0},
@@ -414,15 +409,9 @@ const defaultData={
  ],
  sales:[],cashflows:[],investments:[],stock:[],fundSessions:[]
 };
-let db;
-try{db=JSON.parse(localStorage.getItem(KEY))||clone(defaultData)}catch(e){db=clone(defaultData)}
-if(!Array.isArray(db.fundSessions)) db.fundSessions=[];
-if(db.settings.plannedCups==null) db.settings.plannedCups=0;
-if(!db.settings.employeePin) db.settings.employeePin="0000";
-if(!db.settings.managerPin) db.settings.managerPin="1234";
-db.stock=(db.stock||[]).map(s=>({...s,out:+s.out||0,adjustReason:s.adjustReason||""}));
-// Bản CLEAN: không tự nhập dữ liệu quỹ từ phiên bản cũ.
-function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+let db=clone(defaultData);
+db.fixed=[];db.menu=[];db.staff=[];db.apps=[];db.sales=[];db.cashflows=[];db.investments=[];db.stock=[];db.fundSessions=[];
+function save(){renderAll()}
 const get=(id)=>document.getElementById(id);
 const byId=(arr,id)=>arr.find(x=>x.id===id);
 function monthKey(d){return d.slice(0,7)}
@@ -440,10 +429,10 @@ function updateSalePreview(){
  if(get("saleUnitPrice"))get("saleUnitPrice").textContent=fmt(price);
  if(get("saleLineTotal"))get("saleLineTotal").textContent=fmt(total);
 }
-function saleRevenue(s){let m=byId(db.menu,s.itemId); if(!m)return 0; let p=s.size==="L"?+m.priceL:+m.priceM; return Math.max(0,p*(+s.qty||0)-(+s.discount||0))}
-function saleCogs(s){let m=byId(db.menu,s.itemId); if(!m)return 0; let c=s.size==="L"?+m.costL:+m.costM; return c*(+s.qty||0)}
+function saleRevenue(s){let p=(s.unitPrice!==undefined&&s.unitPrice!==null)?+s.unitPrice:menuUnitPrice(s.itemId,s.size);return Math.max(0,p*(+s.qty||0)-(+s.discount||0))}
+function saleCogs(s){let c=(s.unitCost!==undefined&&s.unitCost!==null)?+s.unitCost:menuUnitCost(s.itemId,s.size);return c*(+s.qty||0)}
 function appRate(name){let a=db.apps.find(x=>x.name===name); return a?((+a.commission||0)+(+a.paymentFee||0)+(+a.otherFee||0)+(+a.voucher||0))/100:0}
-function saleAppFee(s){return saleRevenue(s)*appRate(s.channel)}
+function saleAppFee(s){let r=(s.appFeeRate!==undefined&&s.appFeeRate!==null)?+s.appFeeRate:appRate(s.channel);return saleRevenue(s)*r}
 function cfNetExpense(c){return c.type==="Chi"?+c.amount||0:-(+c.amount||0)}
 function taxRevenueAmt(rev){return rev*(+db.settings.taxRevenue||0)/100}
 function taxIncomeAmt(pre){return Math.max(0,pre)*(+db.settings.taxIncome||0)/100}
@@ -495,10 +484,10 @@ function renderDashboard(){
 function renderSales(){
  get("saleItem").innerHTML=db.menu.map(m=>`<option value="${m.id}">${m.name}</option>`).join("");
  get("saleChannel").innerHTML=['Tại quầy',...db.apps.map(a=>a.name),'Kênh khác'].map(x=>`<option>${x}</option>`).join("");
- get("saleStaff").innerHTML=['Không chọn',...db.staff.map(s=>s.name)].map(x=>`<option>${x}</option>`).join("");
+ get("saleStaff").innerHTML=`<option value="">Không chọn</option>`+db.staff.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
  get("saleDate").value=get("saleDate").value||today();
  let rows=[...db.sales].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,50);
- get("salesBody").innerHTML=rows.map(s=>{let m=byId(db.menu,s.itemId);return `<tr><td>${s.date}</td><td>${m?m.name:"Đã xóa"}</td><td>${s.size}</td><td class="r">${s.qty}</td><td class="r">${fmt(menuUnitPrice(s.itemId,s.size))}</td><td>${s.channel}</td><td>${s.pay}</td><td class="r">${fmt(saleRevenue(s))}</td><td><button class="btn red sm manager-only" onclick="delSale('${s.id}')">Xóa</button></td></tr>`}).join("");
+ get("salesBody").innerHTML=rows.map(s=>{let m=byId(db.menu,s.itemId);return `<tr><td>${s.date}</td><td>${m?m.name:"Đã xóa"}</td><td>${s.size}</td><td class="r">${s.qty}</td><td class="r">${fmt((s.unitPrice!==undefined&&s.unitPrice!==null)?s.unitPrice:menuUnitPrice(s.itemId,s.size))}</td><td>${s.channel}</td><td>${s.pay}</td><td class="r">${fmt(saleRevenue(s))}</td><td><button class="btn red sm manager-only" onclick="delSale('${s.id}')">Xóa</button></td></tr>`}).join("");
  let t=todayData();
  get("s_bills").textContent=t.sales.length;
  get("s_cups").textContent=t.sales.reduce((s,x)=>s+(+x.qty||0),0);
@@ -524,40 +513,40 @@ function renderSales(){
    : `<div class="note" style="margin-top:0">Hôm nay chưa có món nào bán.</div>`;
  updateSalePreview()
 }
-function addSale(){if(!get("saleItem").value)return;db.sales.push({id:uid(),date:get("saleDate").value||today(),itemId:get("saleItem").value,size:get("saleSize").value,qty:+get("saleQty").value||1,channel:get("saleChannel").value,pay:get("salePay").value,discount:+get("saleDiscount").value||0,staff:get("saleStaff").value});save()}
-function delSale(id){db.sales=db.sales.filter(x=>x.id!==id);save()}
+async function addSale(){if(!get("saleItem").value)return;await cloudRun(async()=>{let {error}=await sb.rpc("record_sale",{p_date:get("saleDate").value||today(),p_item_id:get("saleItem").value,p_size:get("saleSize").value,p_qty:+get("saleQty").value||1,p_channel:get("saleChannel").value,p_pay:get("salePay").value,p_discount:+get("saleDiscount").value||0,p_employee_id:get("saleStaff").value||null});if(error)throw error;get("saleQty").value=1;get("saleDiscount").value=0})}
+async function delSale(id){if(activeRole!=="manager")return;await cloudRun(async()=>{let {error}=await sb.from("sales").delete().eq("id",id);if(error)throw error})}
 function renderCF(){
  get("cfDate").value=get("cfDate").value||today();
  let cats=["Nguyên liệu phụ","Vật tư tiêu hao","Sửa chữa","Ăn ca","Marketing","Vận chuyển","Phí ngân hàng","Hoàn tiền","Chi phí khác"];get("cfCategory").innerHTML=cats.map(x=>`<option>${x}</option>`).join("");
  let rows=[...db.cashflows].sort((a,b)=>b.date.localeCompare(a.date));get("cfBody").innerHTML=rows.map(c=>`<tr><td>${c.date}</td><td>${c.type}</td><td>${c.category}</td><td>${c.note||""}</td><td>${c.pay}</td><td class="r">${fmt(c.amount)}</td><td><button class="btn red sm manager-only" onclick="delCF('${c.id}')">Xóa</button></td></tr>`).join("");
  let [f,t]=currentMonthRange();let r=rangeData(f,t);get("cfMonthTotal").textContent=fmt(r.exp)
 }
-function addCashflow(){db.cashflows.push({id:uid(),date:get("cfDate").value||today(),type:get("cfType").value,category:get("cfCategory").value,amount:+get("cfAmount").value||0,pay:get("cfPay").value,vat:+get("cfVat").value||0,note:get("cfNote").value});save()}
-function delCF(id){db.cashflows=db.cashflows.filter(x=>x.id!==id);save()}
+async function addCashflow(){await cloudRun(async()=>{let {error}=await sb.from("cashflows").insert({flow_date:get("cfDate").value||today(),type:get("cfType").value,category:get("cfCategory").value,amount:+get("cfAmount").value||0,pay:get("cfPay").value,vat:+get("cfVat").value||0,note:get("cfNote").value||"",created_by:currentUser.id});if(error)throw error;get("cfAmount").value=0;get("cfNote").value=""})}
+async function delCF(id){if(activeRole!=="manager")return;await cloudRun(async()=>{let {error}=await sb.from("cashflows").delete().eq("id",id);if(error)throw error})}
 function renderMenu(){get("menuBody").innerHTML=db.menu.map(m=>`<tr><td><input value="${m.name}" onchange="updMenu('${m.id}','name',this.value)"></td><td><input value="${m.group||''}" onchange="updMenu('${m.id}','group',this.value)"></td><td><input class="yellow" type="number" value="${m.priceM||0}" onchange="updMenu('${m.id}','priceM',this.value)"></td><td><input class="yellow" type="number" value="${m.costM||0}" onchange="updMenu('${m.id}','costM',this.value)"></td><td><input class="yellow" type="number" value="${m.priceL||0}" onchange="updMenu('${m.id}','priceL',this.value)"></td><td><input class="yellow" type="number" value="${m.costL||0}" onchange="updMenu('${m.id}','costL',this.value)"></td><td class="r">${pct((+m.priceM||0)?(+m.costM||0)/(+m.priceM||1):0)}</td><td class="r">${pct((+m.priceL||0)?(+m.costL||0)/(+m.priceL||1):0)}</td><td><button class="btn red sm" onclick="delMenu('${m.id}')">Xóa</button></td></tr>`).join("")}
-function updMenu(id,k,v){let m=byId(db.menu,id);if(!m)return;m[k]=["priceM","costM","priceL","costL"].includes(k)?+v:v;save()}
-function addMenuItem(){db.menu.push({id:uid(),name:"Món mới",group:"KHÁC",priceM:0,costM:0,priceL:0,costL:0});save()}
-function delMenu(id){db.menu=db.menu.filter(x=>x.id!==id);save()}
+async function updMenu(id,k,v){await cloudRun(async()=>{if(["costM","costL"].includes(k)){let col=k==="costM"?"cost_m":"cost_l";let {error}=await sb.from("menu_costs").upsert({menu_id:id,[col]:+v||0},{onConflict:"menu_id"});if(error)throw error}else{let col={name:"name",group:"group_name",priceM:"price_m",priceL:"price_l"}[k];let val=["priceM","priceL"].includes(k)?(+v||0):v;let {error}=await sb.from("menu_items").update({[col]:val}).eq("id",id);if(error)throw error}})}
+async function addMenuItem(){await cloudRun(async()=>{let {data,error}=await sb.from("menu_items").insert({name:"Món mới",group_name:"KHÁC",price_m:0,price_l:0}).select().single();if(error)throw error;let r=await sb.from("menu_costs").insert({menu_id:data.id,cost_m:0,cost_l:0});if(r.error)throw r.error})}
+async function delMenu(id){await cloudRun(async()=>{let {error}=await sb.from("menu_items").delete().eq("id",id);if(error)throw error})}
 function renderStaff(){get("staffBody").innerHTML=db.staff.map(s=>`<tr><td><input value="${s.name||''}" onchange="updStaff('${s.id}','name',this.value)"></td><td><input value="${s.role||''}" onchange="updStaff('${s.id}','role',this.value)"></td><td><input class="yellow" type="number" value="${s.base||0}" onchange="updStaff('${s.id}','base',this.value)"></td><td><input class="yellow" type="number" value="${s.allow||0}" onchange="updStaff('${s.id}','allow',this.value)"></td><td><input class="yellow" type="number" value="${s.bonus||0}" onchange="updStaff('${s.id}','bonus',this.value)"></td><td><input class="yellow" type="number" value="${s.deduct||0}" onchange="updStaff('${s.id}','deduct',this.value)"></td><td class="r">${fmt(staffPay(s))}</td><td><button class="btn red sm" onclick="delStaff('${s.id}')">Xóa</button></td></tr>`).join("")}
-function addStaff(){db.staff.push({id:uid(),name:"Nhân viên mới",role:"",base:0,allow:0,bonus:0,deduct:0});save()}
-function updStaff(id,k,v){let s=byId(db.staff,id);s[k]=["base","allow","bonus","deduct"].includes(k)?+v:v;save()}
-function delStaff(id){db.staff=db.staff.filter(x=>x.id!==id);save()}
+async function addStaff(){await cloudRun(async()=>{let {data,error}=await sb.from("employees").insert({name:"Nhân viên mới",role_label:""}).select().single();if(error)throw error;let r=await sb.from("employee_payroll").insert({employee_id:data.id});if(r.error)throw r.error})}
+async function updStaff(id,k,v){await cloudRun(async()=>{if(["base","allow","bonus","deduct"].includes(k)){let {error}=await sb.from("employee_payroll").upsert({employee_id:id,[k]:+v||0},{onConflict:"employee_id"});if(error)throw error}else{let col=k==="role"?"role_label":"name";let {error}=await sb.from("employees").update({[col]:v}).eq("id",id);if(error)throw error}})}
+async function delStaff(id){await cloudRun(async()=>{let {error}=await sb.from("employees").delete().eq("id",id);if(error)throw error})}
 function appReceivable(a){return db.sales.filter(s=>s.channel===a.name).reduce((sum,s)=>sum+saleRevenue(s)-saleAppFee(s),0)}
 function renderApps(){get("appsBody").innerHTML=db.apps.map(a=>`<tr><td><input value="${a.name}" onchange="updApp('${a.id}','name',this.value)"></td><td><input class="yellow" type="number" step=".1" value="${a.commission||0}" onchange="updApp('${a.id}','commission',this.value)"></td><td><input class="yellow" type="number" step=".1" value="${a.paymentFee||0}" onchange="updApp('${a.id}','paymentFee',this.value)"></td><td><input class="yellow" type="number" step=".1" value="${a.otherFee||0}" onchange="updApp('${a.id}','otherFee',this.value)"></td><td><input class="yellow" type="number" step=".1" value="${a.voucher||0}" onchange="updApp('${a.id}','voucher',this.value)"></td><td class="r">${fmt(appReceivable(a))}</td><td><button class="btn red sm" onclick="delApp('${a.id}')">Xóa</button></td></tr>`).join("")}
-function addApp(){db.apps.push({id:uid(),name:"APP mới",commission:0,paymentFee:0,otherFee:0,voucher:0});save()}
-function updApp(id,k,v){let a=byId(db.apps,id);a[k]=k==="name"?v:+v;save()}
-function delApp(id){db.apps=db.apps.filter(x=>x.id!==id);save()}
+async function addApp(){await cloudRun(async()=>{let {data,error}=await sb.from("app_channels").insert({name:"APP mới "+Date.now().toString().slice(-4)}).select().single();if(error)throw error;let r=await sb.from("app_fees").insert({app_id:data.id});if(r.error)throw r.error})}
+async function updApp(id,k,v){await cloudRun(async()=>{if(k==="name"){let {error}=await sb.from("app_channels").update({name:v}).eq("id",id);if(error)throw error}else{let col={commission:"commission",paymentFee:"payment_fee",otherFee:"other_fee",voucher:"voucher"}[k];let {error}=await sb.from("app_fees").upsert({app_id:id,[col]:+v||0},{onConflict:"app_id"});if(error)throw error}})}
+async function delApp(id){await cloudRun(async()=>{let {error}=await sb.from("app_channels").delete().eq("id",id);if(error)throw error})}
 function renderFixed(){get("fixedBody").innerHTML=db.fixed.map(f=>`<div class="form" style="grid-template-columns:1.6fr .8fr auto;margin-bottom:8px"><input value="${f.name}" onchange="updFixed('${f.id}','name',this.value)"><input class="yellow" type="number" value="${f.amount||0}" onchange="updFixed('${f.id}','amount',this.value)"><button class="btn red sm" onclick="delFixed('${f.id}')">X</button></div>`).join("")}
-function addFixed(){db.fixed.push({id:uid(),name:"Khoản cố định mới",amount:0});save()}
-function updFixed(id,k,v){let f=byId(db.fixed,id);f[k]=k==="amount"?+v:v;save()}
-function delFixed(id){db.fixed=db.fixed.filter(x=>x.id!==id);save()}
+async function addFixed(){await cloudRun(async()=>{let {error}=await sb.from("fixed_costs").insert({name:"Khoản cố định mới",amount:0});if(error)throw error})}
+async function updFixed(id,k,v){await cloudRun(async()=>{let {error}=await sb.from("fixed_costs").update({[k]:k==="amount"?(+v||0):v}).eq("id",id);if(error)throw error})}
+async function delFixed(id){await cloudRun(async()=>{let {error}=await sb.from("fixed_costs").delete().eq("id",id);if(error)throw error})}
 function renderSettings(){get("taxRevenue").value=db.settings.taxRevenue||0;get("taxIncome").value=db.settings.taxIncome||0;get("openDays").value=db.settings.openDays||0;get("paybackMonths").value=db.settings.paybackMonths||0;renderFixed();
  get("set_fixedbase").textContent=fmt(baseFixedMonthly());
  get("set_payroll").textContent=fmt(payrollMonthly());
  get("set_fixedtotal").textContent=fmt(totalFixedMonthly());
- get("set_fixedday").textContent=fmt(dailyFixed());
+ get("set_fixedday").textContent=fmt(dailyFixed());if(get("cloudUser")&&currentUser)get("cloudUser").textContent=currentUser.email||"—";if(get("cloudRole"))get("cloudRole").textContent=activeRole==="manager"?"Quản lý · Đồng bộ Supabase":"Nhân viên · Đồng bộ Supabase";
 }
-function saveSettings(){db.settings.taxRevenue=+get("taxRevenue").value||0;db.settings.taxIncome=+get("taxIncome").value||0;db.settings.openDays=+get("openDays").value||0;db.settings.paybackMonths=+get("paybackMonths").value||0;if(get("plannedCups"))db.settings.plannedCups=+get("plannedCups").value||0;if(get("employeePin"))db.settings.employeePin=get("employeePin").value||"0000";if(get("managerPin"))db.settings.managerPin=get("managerPin").value||"1234";save()}
+async function saveSettings(){if(activeRole!=="manager")return;await cloudRun(async()=>{let payload={id:1,tax_revenue:+get("taxRevenue").value||0,tax_income:+get("taxIncome").value||0,open_days:+get("openDays").value||0,payback_months:+get("paybackMonths").value||0,planned_cups:get("plannedCups")?(+get("plannedCups").value||0):0};let {error}=await sb.from("app_settings").upsert(payload);if(error)throw error})}
 function fundSession(date){return db.fundSessions.find(x=>x.date===date)}
 function fundNumbers(date=today()){
  let t=rangeData(date,date), ses=fundSession(date);
@@ -605,9 +594,9 @@ function renderFund(){
  get("fundHistory").innerHTML=rows.map(x=>{let n=fundNumbers(x.date),e=x.status==="closed"&&x.expectedAtClose!==undefined?x.expectedAtClose:n.expected,d=x.status==="closed"?(+x.diff||0):null;return `<tr><td>${x.date}</td><td><span class="pill ${x.status==="closed"?"p-blue":"p-green"}">${x.status==="closed"?"Đã đóng":"Đang mở"}</span></td><td class="r">${fmt(x.opening)}</td><td class="r">${fmt(e)}</td><td class="r">${x.status==="closed"?fmt(x.actual):"—"}</td><td class="r ${d===null?"":d<0?"red":d>0?"blue":"green"}">${d===null?"—":fmt(d)}</td><td>${x.closedAt?new Date(x.closedAt).toLocaleString("vi-VN"):"—"}</td><td>${x.closeNote||x.openNote||""}</td></tr>`}).join("")
 }
 function renderInvestments(){get("invBody").innerHTML=db.investments.map(i=>`<tr><td><input value="${i.name||''}" onchange="updInv('${i.id}','name',this.value)"></td><td><input class="yellow" type="number" value="${i.amount||0}" onchange="updInv('${i.id}','amount',this.value)"></td><td><select onchange="updInv('${i.id}','include',this.value==='1')"><option value="1" ${i.include?"selected":""}>Có</option><option value="0" ${!i.include?"selected":""}>Không</option></select></td><td><input value="${i.note||''}" onchange="updInv('${i.id}','note',this.value)"></td><td><button class="btn red sm" onclick="delInv('${i.id}')">Xóa</button></td></tr>`).join("")}
-function addInvestment(){db.investments.push({id:uid(),name:"Hạng mục đầu tư",amount:0,include:true,note:""});save()}
-function updInv(id,k,v){let i=byId(db.investments,id);i[k]=k==="amount"?+v:v;save()}
-function delInv(id){db.investments=db.investments.filter(x=>x.id!==id);save()}
+async function addInvestment(){await cloudRun(async()=>{let {error}=await sb.from("investments").insert({name:"Hạng mục đầu tư",amount:0,include_in_payback:true,note:""});if(error)throw error})}
+async function updInv(id,k,v){await cloudRun(async()=>{let col=k==="include"?"include_in_payback":k;let val=k==="amount"?(+v||0):v;let {error}=await sb.from("investments").update({[col]:val}).eq("id",id);if(error)throw error})}
+async function delInv(id){await cloudRun(async()=>{let {error}=await sb.from("investments").delete().eq("id",id);if(error)throw error})}
 function renderPayback(){
  renderInvestments();let inv=investmentTotal(),hist=allDailyResults(),rec=hist.reduce((s,x)=>s+x.net,0),remain=inv-rec,p=inv?rec/inv*100:0;
  get("p_main").textContent=`${fmt(rec)} / ${fmt(inv)}`;get("p_prog").style.width=Math.max(0,Math.min(100,p))+"%";get("p_pct").textContent=p.toFixed(1)+"%";get("p_remain").textContent="Còn "+fmt(remain);
@@ -630,9 +619,9 @@ function renderStock(){get("stockBody").innerHTML=db.stock.map(s=>{
  <td class="manager-only"><input class="yellow" type="number" value="${s.unitCost||0}" onchange="updStock('${s.id}','unitCost',this.value)"></td>
  <td class="r manager-only">${fmt(end*(+s.unitCost||0))}</td>
  <td class="manager-only"><button class="btn red sm" onclick="delStock('${s.id}')">Xóa</button></td></tr>`}).join("")}
-function addStock(){db.stock.push({id:uid(),name:"Nguyên liệu",unit:"",open:0,in:0,out:0,adjust:0,adjustReason:"",unitCost:0});save()}
-function updStock(id,k,v){let s=byId(db.stock,id);s[k]=["open","in","out","adjust","unitCost"].includes(k)?+v:v;save()}
-function delStock(id){db.stock=db.stock.filter(x=>x.id!==id);save()}
+async function addStock(){await cloudRun(async()=>{let {data,error}=await sb.from("stock_items").insert({name:"Nguyên liệu",unit:""}).select().single();if(error)throw error;if(activeRole==="manager"){let r=await sb.from("stock_costs").insert({stock_id:data.id,unit_cost:0});if(r.error)throw r.error}})}
+async function updStock(id,k,v){await cloudRun(async()=>{if(k==="unitCost"){if(activeRole!=="manager")return;let {error}=await sb.from("stock_costs").upsert({stock_id:id,unit_cost:+v||0},{onConflict:"stock_id"});if(error)throw error}else{let col={name:"name",unit:"unit",open:"open_qty",in:"in_qty",out:"out_qty",adjust:"adjust_qty",adjustReason:"adjust_reason"}[k];let val=["open","in","out","adjust"].includes(k)?(+v||0):v;let {error}=await sb.from("stock_items").update({[col]:val,updated_at:new Date().toISOString()}).eq("id",id);if(error)throw error}})}
+async function delStock(id){if(activeRole!=="manager")return;await cloudRun(async()=>{let {error}=await sb.from("stock_items").delete().eq("id",id);if(error)throw error})}
 function selectedFullCostMonth(){
  let v=get("fcMonth")?.value;
  if(v)return v;
@@ -670,51 +659,105 @@ function renderReport(){let [f,t]=reportRange(),r=rangeData(f,t);get("reportTitl
  get("r_payroll_month").textContent=fmt(payrollMonthly());
  get("r_fixedtotal_month").textContent=fmt(totalFixedMonthly());
  get("r_fixedday").textContent=fmt(dailyFixed());
- get("r_opendays").textContent=(+db.settings.openDays||30);
+ get("r_opendays").textContent=(+db.settings.openDays||0);
 }
 function exportExcel(){if(typeof XLSX==="undefined"){alert("Không tải được thư viện Excel. Hãy kiểm tra Internet.");return}let wb=XLSX.utils.book_new();let sr=db.sales.map(s=>{let m=byId(db.menu,s.itemId);return {Ngày:s.date,Món:m?m.name:"",Size:s.size,SL:s.qty,Kênh:s.channel,ThanhToán:s.pay,DoanhThu:saleRevenue(s),GiáVốn:saleCogs(s),PhíAPP:saleAppFee(s)}});XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sr),"Ban hang");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.cashflows),"Thu Chi");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.menu),"Mon Cost");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.staff),"Nhan vien");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.investments),"Von dau tu");XLSX.writeFile(wb,"COEN_POS_Accounting_"+today()+".xlsx")}
 function exportJSON(){let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="COEN_POS_backup_"+today()+".json";a.click();URL.revokeObjectURL(a.href)}
-function importJSON(file){if(!file)return;let fr=new FileReader();fr.onload=()=>{try{db=JSON.parse(fr.result);save();alert("Đã khôi phục dữ liệu.")}catch(e){alert("File JSON không hợp lệ.")}};fr.readAsText(file)}
+function importJSON(file){alert("Bản Cloud không khôi phục trực tiếp JSON để tránh ghi đè dữ liệu nhiều máy. File JSON vẫn dùng làm backup tải về.")}
 function renderAll(){renderDashboard();renderSales();renderCF();renderMenu();renderFullCost();renderStaff();renderApps();renderSettings();renderFund();renderPayback();renderStock();renderReport()}
 
-let selectedLoginRole="employee";
-let activeRole=sessionStorage.getItem("coen_active_role")||"";
+const sb=window.supabase.createClient(window.COEN_SUPABASE_URL,window.COEN_SUPABASE_PUBLISHABLE_KEY);
+let currentUser=null;
+let activeRole="";
+let realtimeChannel=null;
+let reloadTimer=null;
 
-function chooseRole(role){
- selectedLoginRole=role;
- get("roleEmployeeBtn")?.classList.toggle("active",role==="employee");
- get("roleManagerBtn")?.classList.toggle("active",role==="manager");
- if(get("loginPin"))get("loginPin").value="";
- if(get("loginError"))get("loginError").textContent="";
+function num(v){return Number(v)||0}
+function cloudFail(e){console.error(e);alert("Cloud lỗi: "+(e?.message||e))}
+async function cloudRun(fn){try{await fn();await loadCloudData()}catch(e){cloudFail(e)}}
+
+async function loadCloudData(){
+ if(!currentUser)return;
+ const manager=activeRole==="manager";
+ let common=await Promise.all([
+   sb.from("menu_items").select("*").eq("active",true).order("name"),
+   sb.from("employees").select("*").eq("active",true).order("name"),
+   sb.from("app_channels").select("*").eq("active",true).order("name"),
+   sb.from("stock_items").select("*").order("name"),
+   sb.from("cashflows").select("*").order("flow_date",{ascending:false})
+ ]);
+ for(const r of common)if(r.error)throw r.error;
+ let [menus,emps,apps,stocks,cfs]=common.map(x=>x.data||[]);
+ let saleData;
+ if(manager){let r=await sb.from("sales").select("*").order("sale_date",{ascending:false}).order("created_at",{ascending:false});if(r.error)throw r.error;saleData=r.data||[]}
+ else{let r=await sb.rpc("list_sales_public",{});if(r.error)throw r.error;saleData=r.data||[]}
+ let mc=[],pay=[],fees=[],sc=[],fixed=[],fund=[],inv=[],settings=[];
+ if(manager){
+   let extra=await Promise.all([
+     sb.from("menu_costs").select("*"),sb.from("employee_payroll").select("*"),sb.from("app_fees").select("*"),sb.from("stock_costs").select("*"),
+     sb.from("fixed_costs").select("*").order("name"),sb.from("fund_sessions").select("*").order("fund_date",{ascending:false}),
+     sb.from("investments").select("*").order("name"),sb.from("app_settings").select("*").eq("id",1).limit(1)
+   ]);for(const r of extra)if(r.error)throw r.error;[mc,pay,fees,sc,fixed,fund,inv,settings]=extra.map(x=>x.data||[])
+ }
+ const costMap=Object.fromEntries(mc.map(x=>[x.menu_id,x]));
+ db.menu=menus.map(x=>({id:x.id,name:x.name,group:x.group_name,priceM:num(x.price_m),priceL:num(x.price_l),costM:num(costMap[x.id]?.cost_m),costL:num(costMap[x.id]?.cost_l)}));
+ const payMap=Object.fromEntries(pay.map(x=>[x.employee_id,x]));
+ db.staff=emps.map(x=>({id:x.id,name:x.name,role:x.role_label,base:num(payMap[x.id]?.base),allow:num(payMap[x.id]?.allow),bonus:num(payMap[x.id]?.bonus),deduct:num(payMap[x.id]?.deduct)}));
+ const feeMap=Object.fromEntries(fees.map(x=>[x.app_id,x]));
+ db.apps=apps.map(x=>({id:x.id,name:x.name,commission:num(feeMap[x.id]?.commission),paymentFee:num(feeMap[x.id]?.payment_fee),otherFee:num(feeMap[x.id]?.other_fee),voucher:num(feeMap[x.id]?.voucher)}));
+ const stockCostMap=Object.fromEntries(sc.map(x=>[x.stock_id,x]));
+ db.stock=stocks.map(x=>({id:x.id,name:x.name,unit:x.unit,open:num(x.open_qty),in:num(x.in_qty),out:num(x.out_qty),adjust:num(x.adjust_qty),adjustReason:x.adjust_reason||"",unitCost:num(stockCostMap[x.id]?.unit_cost)}));
+ db.cashflows=cfs.map(x=>({id:x.id,date:x.flow_date,type:x.type,category:x.category,amount:num(x.amount),pay:x.pay,vat:num(x.vat),note:x.note||""}));
+ db.sales=saleData.map(x=>({id:x.id,date:x.sale_date,itemId:x.item_id,size:x.size,qty:num(x.qty),channel:x.channel,pay:x.pay,discount:num(x.discount),staffId:x.employee_id||null,unitPrice:num(x.unit_price),unitCost:manager?num(x.unit_cost):0,appFeeRate:manager?num(x.app_fee_rate):0}));
+ db.fixed=manager?fixed.map(x=>({id:x.id,name:x.name,amount:num(x.amount)})):[];
+ db.fundSessions=manager?fund.map(x=>({id:x.id,date:x.fund_date,opening:num(x.opening),actual:x.actual===null?null:num(x.actual),expectedAtClose:x.expected_at_close===null?undefined:num(x.expected_at_close),diff:x.diff===null?0:num(x.diff),openNote:x.open_note||"",closeNote:x.close_note||"",status:x.status,openedAt:x.opened_at,closedAt:x.closed_at})):[];
+ db.investments=manager?inv.map(x=>({id:x.id,name:x.name,amount:num(x.amount),include:!!x.include_in_payback,note:x.note||""})):[];
+ if(manager&&settings[0])db.settings={...db.settings,taxRevenue:num(settings[0].tax_revenue),taxIncome:num(settings[0].tax_income),openDays:num(settings[0].open_days),paybackMonths:num(settings[0].payback_months),plannedCups:num(settings[0].planned_cups)};
+ renderAll();applyRolePermissions(false);
 }
-function loginRole(){
- let pin=get("loginPin")?.value||"";
- let expected=selectedLoginRole==="manager"?(db.settings.managerPin||"1234"):(db.settings.employeePin||"0000");
- if(pin!==expected){get("loginError").textContent="PIN không đúng.";return}
- activeRole=selectedLoginRole;sessionStorage.setItem("coen_active_role",activeRole);
- get("roleLogin").classList.add("hidden");applyRolePermissions();
+
+async function loginCloud(){
+ let email=get("loginEmail").value.trim(),password=get("loginPassword").value;
+ get("loginError").textContent="";get("loginButton").disabled=true;
+ try{let {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await enterSession(data.user)}catch(e){get("loginError").textContent=e.message||"Đăng nhập thất bại"}finally{get("loginButton").disabled=false}
 }
-function logoutRole(){sessionStorage.removeItem("coen_active_role");activeRole="";get("roleLogin").classList.remove("hidden");chooseRole("employee")}
-function applyRolePermissions(){
+async function enterSession(user){
+ currentUser=user;let {data,error}=await sb.from("profiles").select("role,display_name").eq("id",user.id).single();if(error)throw error;
+ activeRole=data.role||"employee";get("roleLogin").classList.add("hidden");
+ await loadCloudData();applyRolePermissions();setupRealtime();
+ if(get("cloudUser"))get("cloudUser").textContent=data.display_name||user.email;
+ if(get("cloudRole"))get("cloudRole").textContent=activeRole==="manager"?"Quản lý · Đồng bộ Supabase":"Nhân viên · Đồng bộ Supabase";
+}
+async function logoutRole(){if(realtimeChannel){await sb.removeChannel(realtimeChannel);realtimeChannel=null}await sb.auth.signOut();currentUser=null;activeRole="";db=clone(defaultData);get("roleLogin").classList.remove("hidden")}
+function applyRolePermissions(doRender=true){
  let manager=activeRole==="manager";
- document.querySelectorAll(".nav button[data-page],.mobilebar button[data-page]").forEach(btn=>{
-   btn.style.display=(manager||btn.dataset.employee==="1")?"":"none";
- });
+ document.querySelectorAll(".nav button[data-page],.mobilebar button[data-page]").forEach(btn=>{btn.style.display=(manager||btn.dataset.employee==="1")?"":"none"});
  document.querySelectorAll(".manager-only").forEach(el=>el.classList.toggle("manager-only-hidden",!manager));
  let badge=get("activeRoleBadge");if(badge){badge.textContent=manager?"QUẢN LÝ":"NHÂN VIÊN";badge.className="rolebadge "+(manager?"manager":"employee")}
- let visible=document.querySelector(".page.on");
- if(!manager && (!visible||!["sales","cashflow","stock"].includes(visible.id))){
-   document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));get("sales").classList.add("on");
-   get("pageTitle").textContent="Bán hàng";get("pageSub").textContent="Ghi nhận đơn theo món, size, kênh và thanh toán.";
- }
- renderAll();
- document.querySelectorAll(".manager-only").forEach(el=>el.classList.toggle("manager-only-hidden",!manager));
+ let visible=document.querySelector(".page.on");if(!manager&&(!visible||!["sales","cashflow","stock"].includes(visible.id))){document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));get("sales").classList.add("on");get("pageTitle").textContent="Bán hàng";get("pageSub").textContent="Ghi nhận đơn và đồng bộ dữ liệu Cloud."}
+ if(doRender)renderAll();document.querySelectorAll(".manager-only").forEach(el=>el.classList.toggle("manager-only-hidden",!manager));
 }
-function bootRoleLogin(){
- if(["manager","employee"].includes(activeRole)){get("roleLogin").classList.add("hidden");applyRolePermissions()}
- else{get("roleLogin").classList.remove("hidden");chooseRole("employee")}
+function setupRealtime(){
+ if(realtimeChannel)sb.removeChannel(realtimeChannel);
+ const refresh=()=>{clearTimeout(reloadTimer);reloadTimer=setTimeout(()=>loadCloudData().catch(cloudFail),250)};
+ realtimeChannel=sb.channel("coen-live")
+   .on("postgres_changes",{event:"*",schema:"public",table:"sales"},refresh)
+   .on("postgres_changes",{event:"*",schema:"public",table:"cashflows"},refresh)
+   .on("postgres_changes",{event:"*",schema:"public",table:"stock_items"},refresh)
+   .on("postgres_changes",{event:"*",schema:"public",table:"menu_items"},refresh)
+   .subscribe();
+}
+async function bootCloud(){
+ if(!window.COEN_SUPABASE_URL||!window.COEN_SUPABASE_PUBLISHABLE_KEY){get("loginError").textContent="Thiếu config Supabase.";return}
+ let {data:{session}}=await sb.auth.getSession();if(session){try{await enterSession(session.user)}catch(e){cloudFail(e)}}else get("roleLogin").classList.remove("hidden");
 }
 
+async function updMenu(id,k,v){await cloudRun(async()=>{if(["costM","costL"].includes(k)){let col=k==="costM"?"cost_m":"cost_l";let current=byId(db.menu,id)||{};let payload={menu_id:id,cost_m:k==="costM"?(+v||0):(+current.costM||0),cost_l:k==="costL"?(+v||0):(+current.costL||0)};let {error}=await sb.from("menu_costs").upsert(payload,{onConflict:"menu_id"});if(error)throw error}else{let col={name:"name",group:"group_name",priceM:"price_m",priceL:"price_l"}[k];let val=["priceM","priceL"].includes(k)?(+v||0):v;let {error}=await sb.from("menu_items").update({[col]:val}).eq("id",id);if(error)throw error}})}
+async function updStaff(id,k,v){await cloudRun(async()=>{if(["base","allow","bonus","deduct"].includes(k)){let s=byId(db.staff,id)||{};let payload={employee_id:id,base:k==="base"?(+v||0):(+s.base||0),allow:k==="allow"?(+v||0):(+s.allow||0),bonus:k==="bonus"?(+v||0):(+s.bonus||0),deduct:k==="deduct"?(+v||0):(+s.deduct||0)};let {error}=await sb.from("employee_payroll").upsert(payload,{onConflict:"employee_id"});if(error)throw error}else{let col=k==="role"?"role_label":"name";let {error}=await sb.from("employees").update({[col]:v}).eq("id",id);if(error)throw error}})}
+async function updApp(id,k,v){await cloudRun(async()=>{if(k==="name"){let {error}=await sb.from("app_channels").update({name:v}).eq("id",id);if(error)throw error}else{let a=byId(db.apps,id)||{};let payload={app_id:id,commission:k==="commission"?(+v||0):(+a.commission||0),payment_fee:k==="paymentFee"?(+v||0):(+a.paymentFee||0),other_fee:k==="otherFee"?(+v||0):(+a.otherFee||0),voucher:k==="voucher"?(+v||0):(+a.voucher||0)};let {error}=await sb.from("app_fees").upsert(payload,{onConflict:"app_id"});if(error)throw error}})}
+async function updFixed(id,k,v){await cloudRun(async()=>{let {error}=await sb.from("fixed_costs").update({[k]:k==="amount"?(+v||0):v}).eq("id",id);if(error)throw error})}
+async function updInv(id,k,v){await cloudRun(async()=>{let col=k==="include"?"include_in_payback":k;let {error}=await sb.from("investments").update({[col]:k==="amount"?(+v||0):v}).eq("id",id);if(error)throw error})}
+async function updStock(id,k,v){await cloudRun(async()=>{if(k==="unitCost"){if(activeRole!=="manager")return;let {error}=await sb.from("stock_costs").upsert({stock_id:id,unit_cost:+v||0},{onConflict:"stock_id"});if(error)throw error}else{let col={name:"name",unit:"unit",open:"open_qty",in:"in_qty",out:"out_qty",adjust:"adjust_qty",adjustReason:"adjust_reason"}[k];let val=["open","in","out","adjust"].includes(k)?(+v||0):v;let {error}=await sb.from("stock_items").update({[col]:val,updated_at:new Date().toISOString()}).eq("id",id);if(error)throw error}})}
 const meta={dashboard:["Tổng quan","Doanh thu, chi phí, lợi nhuận và hòa vốn hôm nay."],sales:["Bán hàng","Ghi nhận đơn theo món, size, kênh và thanh toán."],cashflow:["Thu / Chi","Chi phí phát sinh trong ngày và khoản thu khác."],stock:["Kho","Theo dõi tồn kho và giá trị tồn."],menu:["Món & Cost","Giá bán, cost và tỷ lệ giá vốn từng món."],fullcost:["Giá thành toàn phần","Phân bổ điện, nước, mặt bằng, lương, mạng và toàn bộ fixed cost vào từng ly."],staff:["Nhân viên","Lương, phụ cấp, thưởng và khấu trừ."],apps:["APP","Phí riêng và công nợ từng nền tảng."],fund:["Quỹ","Mở quỹ đầu ngày, đóng quỹ cuối ca và lưu lịch sử từng ngày."],payback:["Hoàn vốn đầu tư","Đã thu hồi bao nhiêu và còn bao lâu."],reports:["Báo cáo","P&L theo ngày, tháng, năm."],settings:["Cài đặt","Thuế, chi phí cố định và thông số tài chính."]}
 document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
  let id=b.dataset.page;
@@ -723,7 +766,6 @@ document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
  document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("on",x.dataset.page===id));
  get("pageTitle").textContent=meta[id][0];get("pageSub").textContent=meta[id][1];window.scrollTo({top:0,behavior:"smooth"})
 })
-renderAll();
-bootRoleLogin();
+bootCloud();
 </script>
 </body></html>
